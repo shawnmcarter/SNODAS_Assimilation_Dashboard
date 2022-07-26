@@ -338,16 +338,15 @@ shinyServer(function(input, output, session) {
     coords <- matrix(coords, ncol=2, byrow= TRUE)
     
     assim_process_region <- st_sf(st_sfc(st_polygon(list(coords))), crs=st_crs(4326))
+    
+    geopackage <- file.path(assim_folder, today, 'nudging_layers', paste0('assim_processing_layers_', today, '.gpkg'))
+    assim_process_region <- st_sf(st_sfc(st_polygon(list(coords))), crs=st_crs(4326))
     points_filename <- paste0('ssm1054_md_based_', format(Sys.Date() -1, '%Y%m%d'),
-                              '12_', format(Sys.Date(), '%Y%m%d'), '12_', tolower(input$region),
-                              '.shp')
-    poly_filnename <- paste0('process_region_', format(Sys.Date() - 1, '%Y%m%d'),
-                             '12_', format(Sys.Date(), '%Y%m%d'), '12_swe_', tolower(input$region),
-                             '.shp')
-    st_write(selected_points$shp, file.path(assim_folder, today, 'nudging_layers', 
-                                            points_filename), delete_dsn = TRUE)
-    st_write(region_polygons$shp, file.path(assim_folder, today, 'nudging_layers',
-                                            poly_filnename), delete_dsn =TRUE)
+                              '12_', format(Sys.Date(), '%Y%m%d'), '12_', tolower(input$region))
+    poly_filename <- paste0('process_region_', format(Sys.Date() - 1, '%Y%m%d'),
+                             '12_', format(Sys.Date(), '%Y%m%d'), '12_swe_', tolower(input$region))
+    st_write(selected_points$shp, dsn=geopackage, layer=points_filename, delete_dsn=TRUE)
+    st_write(region_polygons$shp, dsn=geopackage, layer=poly_filename, append=TRUE)
   })
   
   deleted_points <- reactiveValues()
