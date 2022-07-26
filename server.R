@@ -1,4 +1,3 @@
-
 library(dplyr)
 library(DT)
 library(fs)
@@ -15,13 +14,13 @@ library(shiny)
 
 # Setup
 # Set up the Global Variables (Map, etc)
-#setwd('../SNODAS_Assimilation/')
+setwd('../SNODAS_Assimilation/')
 today <- format(Sys.Date(), '%Y%m%d')
 yesterday <- format(Sys.Date() - 1, '%Y%m%d')
 time <- as.integer(format(Sys.time(), '%H'))
 
 if (time >= 11){
-  hour <- '12'
+  hour <- '06'
 } else {
   hour <- '06'
 }
@@ -107,14 +106,9 @@ pointIcons <- iconList(
 assim_point_shp <- shp_to_pnts()
 flightlines <- readOGR('../flines/flines.shp')
 
-
-
-
 shinyServer(function(input, output, session) {
 
   output$map <- renderLeaflet({
-    
-    
     leaflet() %>%
       setView(-93, 42.5, zoom=4 ) %>%
       addProviderTiles(providers$CartoDB.DarkMatter, group='Dark') %>%
@@ -136,6 +130,7 @@ shinyServer(function(input, output, session) {
                                 '">Station Page on NOHRSC'),
                  layerId = ~STATION_ID,
                  group = 'Observations') %>%
+      
       addCircleMarkers(data=assim_point_shp %>% filter(TRUE_FLAG == 1),
                        group='Observed SWE',
                        color='darkgreen',
@@ -144,6 +139,7 @@ shinyServer(function(input, output, session) {
                        fillOpacity=0.0,
                        stroke=TRUE,
                        ) %>%
+      
       addCircleMarkers(data=assim_point_shp %>% filter(OB_SWE == 0),
                        group='True Zeros',
                        radius=5,
@@ -151,6 +147,7 @@ shinyServer(function(input, output, session) {
                        color='yellow',
                        fillOpacity=0.0,
                        stroke=TRUE) %>%
+      
       addPolylines(data=flightlines,
                    color='darkblue',
                    group='FLINES',
@@ -167,8 +164,8 @@ shinyServer(function(input, output, session) {
                                           drawMarker = FALSE,
                                           drawPolyline = FALSE, 
                                           drawRectangle = FALSE,position = 'topleft'),
-        drawOptions = pmDrawOptions(allowSelfIntersection = FALSE, snappable = FALSE),
-      ) %>%
+        drawOptions = pmDrawOptions(allowSelfIntersection = FALSE, snappable = FALSE)) %>%
+      
       hideGroup('Observed SWE') %>%
       hideGroup('True Zeros')
   })
@@ -176,6 +173,7 @@ shinyServer(function(input, output, session) {
   output$legend <- renderUI({
     tags$img(src='https://www.nohrsc.noaa.gov/pub/staff/scarter/SNODAS_Legend.png', width="350")
   })
+  
   selected_points <- reactiveValues()
   region_polygons <- reactiveValues()
   
@@ -190,7 +188,6 @@ shinyServer(function(input, output, session) {
     } else {
       region_polygons$shp <- bind_rows(region_polygons$shp, st_sf(st_sfc(st_polygon(list(coords))), crs=st_crs(4326)))
     }
-    
     # Create a new SF object of the assim points within the polygon
     selected_points$shp <- st_filter(assim_point_shp, region_polygons$shp)
     
@@ -277,37 +274,40 @@ shinyServer(function(input, output, session) {
             D_SWE_OM > 0.25   & D_SWE_OM <= 0.50   ~ 'icon17',
             D_SWE_OM > 0.05   & D_SWE_OM <= 1.0    ~ 'icon18',
             D_SWE_OM > 1.0 ~ 'icon19'
-          )) 
-        selected_points$shp[which(selected_points$shp$STATION_ID == station), ] <- point_edit
-      } else if (input$density != selected_points$shp[which(selected_points$shp$STATION_ID == station), ]$MD_DENSITY){
-        point_edit <- selected_points$shp %>%
-          filter(STATION_ID == station) %>%
-          mutate(MD_DENSITY = input$density) %>%
-          mutate(MD_SWE = MD_DENSITY * MD_DEPTH) %>%
-          mutate(D_SWE_OM = OB_SWE - MD_SWE) %>%
-          mutate(delta = case_when(
-            D_SWE_OM <= -1 ~ 'icon1',
-            D_SWE_OM > -1     & D_SWE_OM <= -0.5   ~ 'icon2',
-            D_SWE_OM > -0.5   & D_SWE_OM <= -0.25  ~ 'icon3',
-            D_SWE_OM > -0.25  & D_SWE_OM <= -0.10  ~ 'icon4',
-            D_SWE_OM > -0.10  & D_SWE_OM <= -0.075 ~ 'icon5',
-            D_SWE_OM > -0.075 & D_SWE_OM <= -0.05  ~ 'icon6',
-            D_SWE_OM > -0.05  & D_SWE_OM <= -0.025 ~ 'icon7',
-            D_SWE_OM > -0.025 & D_SWE_OM <= -0.01  ~ 'icon8',
-            D_SWE_OM > -0.01  & D_SWE_OM <= -0.001 ~ 'icon9',
-            D_SWE_OM > -0.001 & D_SWE_OM <= 0.001  ~ 'icon10',
-            D_SWE_OM > 0.001  & D_SWE_OM <= 0.01   ~ 'icon11',
-            D_SWE_OM > 0.01   & D_SWE_OM <= 0.025  ~ 'icon12',
-            D_SWE_OM > 0.025  & D_SWE_OM <= 0.05   ~ 'icon13',
-            D_SWE_OM > 0.05   & D_SWE_OM <= 0.075  ~ 'icon14',
-            D_SWE_OM > 0.075  & D_SWE_OM <= 0.10   ~ 'icon15',
-            D_SWE_OM > 0.10   & D_SWE_OM <= 0.25   ~ 'icon16',
-            D_SWE_OM > 0.25   & D_SWE_OM <= 0.50   ~ 'icon17',
-            D_SWE_OM > 0.05   & D_SWE_OM <= 1.0    ~ 'icon18',
-            D_SWE_OM > 1.0 ~ 'icon19'
           ))
+        
         selected_points$shp[which(selected_points$shp$STATION_ID == station), ] <- point_edit
-      }
+      
+        } else if (input$density != selected_points$shp[which(selected_points$shp$STATION_ID == station), ]$MD_DENSITY){
+          point_edit <- selected_points$shp %>%
+            filter(STATION_ID == station) %>%
+            mutate(MD_DENSITY = input$density) %>%
+            mutate(MD_SWE = MD_DENSITY * MD_DEPTH) %>%
+            mutate(D_SWE_OM = OB_SWE - MD_SWE) %>%
+            mutate(delta = case_when(
+              D_SWE_OM <= -1 ~ 'icon1',
+              D_SWE_OM > -1     & D_SWE_OM <= -0.5   ~ 'icon2',
+              D_SWE_OM > -0.5   & D_SWE_OM <= -0.25  ~ 'icon3',
+              D_SWE_OM > -0.25  & D_SWE_OM <= -0.10  ~ 'icon4',
+              D_SWE_OM > -0.10  & D_SWE_OM <= -0.075 ~ 'icon5',
+              D_SWE_OM > -0.075 & D_SWE_OM <= -0.05  ~ 'icon6',
+              D_SWE_OM > -0.05  & D_SWE_OM <= -0.025 ~ 'icon7',
+              D_SWE_OM > -0.025 & D_SWE_OM <= -0.01  ~ 'icon8',
+              D_SWE_OM > -0.01  & D_SWE_OM <= -0.001 ~ 'icon9',
+              D_SWE_OM > -0.001 & D_SWE_OM <= 0.001  ~ 'icon10',
+              D_SWE_OM > 0.001  & D_SWE_OM <= 0.01   ~ 'icon11',
+              D_SWE_OM > 0.01   & D_SWE_OM <= 0.025  ~ 'icon12',
+              D_SWE_OM > 0.025  & D_SWE_OM <= 0.05   ~ 'icon13',
+              D_SWE_OM > 0.05   & D_SWE_OM <= 0.075  ~ 'icon14',
+              D_SWE_OM > 0.075  & D_SWE_OM <= 0.10   ~ 'icon15',
+              D_SWE_OM > 0.10   & D_SWE_OM <= 0.25   ~ 'icon16',
+              D_SWE_OM > 0.25   & D_SWE_OM <= 0.50   ~ 'icon17',
+              D_SWE_OM > 0.05   & D_SWE_OM <= 1.0    ~ 'icon18',
+              D_SWE_OM > 1.0 ~ 'icon19'
+            ))
+          selected_points$shp[which(selected_points$shp$STATION_ID == station), ] <- point_edit
+        }
+      
       leafletProxy('map') %>%
         clearGroup('Assim Points') %>%
         addMarkers(data=selected_points$shp,
@@ -324,6 +324,7 @@ shinyServer(function(input, output, session) {
                    group = 'Assim Points')
     }
   })
+  
   observeEvent(input$export_points, {
     if (!dir.exists(file.path(assim_folder, today, 'nudging_layers'))){
       dir.create(file.path(assim_folder, today, 'nudging_layers'))
@@ -337,14 +338,13 @@ shinyServer(function(input, output, session) {
     coords <- unlist(feat$geometry$coordinates)
     coords <- matrix(coords, ncol=2, byrow= TRUE)
     
-    assim_process_region <- st_sf(st_sfc(st_polygon(list(coords))), crs=st_crs(4326))
-    
     geopackage <- file.path(assim_folder, today, 'nudging_layers', paste0('assim_processing_layers_', today, '.gpkg'))
     assim_process_region <- st_sf(st_sfc(st_polygon(list(coords))), crs=st_crs(4326))
     points_filename <- paste0('ssm1054_md_based_', format(Sys.Date() -1, '%Y%m%d'),
                               '12_', format(Sys.Date(), '%Y%m%d'), '12_', tolower(input$region))
     poly_filename <- paste0('process_region_', format(Sys.Date() - 1, '%Y%m%d'),
                              '12_', format(Sys.Date(), '%Y%m%d'), '12_swe_', tolower(input$region))
+    
     st_write(selected_points$shp, dsn=geopackage, layer=points_filename, delete_dsn=TRUE)
     st_write(region_polygons$shp, dsn=geopackage, layer=poly_filename, append=TRUE)
   })
@@ -370,14 +370,12 @@ shinyServer(function(input, output, session) {
                  layerId = ~STATION_ID,
                  group = 'Assim Points')
   }) 
+  
   observeEvent(input$undo_delete, {
     if (length(deleted_points$list) > 0){
       idx <- length(deleted_points$list)
       point_id <- deleted_points$list[idx]
-      print(deleted_points$list)
       deleted_points$list <- deleted_points$list[-idx]
-      print('test')
-      print(deleted_points$list)
       selected_points$shp <- selected_points$shp %>%
         bind_rows(assim_point_shp %>% filter(STATION_ID == point_id))
       leafletProxy('map') %>%
@@ -505,8 +503,7 @@ shinyServer(function(input, output, session) {
     
     selected_points$shp <- selected_points$shp %>%
       filter(!is.null(POINT_X))
-    
-    
+
     leafletProxy('map') %>%
       clearGroup('Assim Points') %>%
       addMarkers(data=selected_points$shp,
@@ -549,7 +546,8 @@ shinyServer(function(input, output, session) {
                           labelOptions=labelOptions(noHide = T, 
                                                     direction='top', 
                                                     textOnly=TRUE,
-                                                    textsize = '14px')) %>%
+                                                    textsize = '14px',
+                          style=list('font-weight' = 'bold'))) %>%
       addLayersControl(
         baseGroups=c('Dark', 'Nat Geo'),
         overlayGroups = c('SNODAS', 'Observations', 'FLINES', 'Observed SWE', 'True Zeros', 'Labels'),
@@ -580,7 +578,6 @@ shinyServer(function(input, output, session) {
     
   })
 
-  
   output$errors <- renderPlot({
     points <- points_in_view() %>%
       filter(abs(D_SWE_OM) < 0.25)  %>%
@@ -608,6 +605,7 @@ shinyServer(function(input, output, session) {
       ylab('Station Type') + coord_flip()
     
     regression <- lm(points_in_view()$MD_SWE ~ points_in_view()$OB_SWE)
+    
     if (nrow(points_in_view()) == 0)
       return(NULL)
     
@@ -643,6 +641,7 @@ shinyServer(function(input, output, session) {
     grid.arrange(p1, p2, nrow=2)
     
   })
+  
   graph_date_1 <- Sys.Date() - 5
   graph_date_2 <- Sys.Date() + 3
   
@@ -673,7 +672,6 @@ shinyServer(function(input, output, session) {
       tags$a(href=urls[[8]], tags$img(src = urls[[8]], width='100%'))
     )
   })
-  
   
   point_table <- reactive({
     if (input$get_points == 0){
